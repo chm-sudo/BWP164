@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acid Dilution & pH Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <style>
+        .beaker-container {
+            position: relative;
+            width: 120px;
+            height: 160px;
+            border: 4px solid #94a3b8;
+            border-top: none;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            background: rgba(248, 250, 252, 0.6);
+            overflow: hidden;
+            transition: border-color 0.3s ease;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            transition: height 0.1s ease-out, background-color 0.3s ease;
+        }
+        .ph-meter {
+            font-family: 'Courier New', Courier, monospace;
+            background: #0f172a;
+            color: #4ade80;
+            padding: 6px 12px;
+            border-radius: 6px;
+            box-shadow: inset 0 0 8px #000;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+        }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Great+Vibes&display=swap');
+        .cert-title {
+            font-family: 'Cinzel', serif;
+        }
+        .cert-cursive {
+            font-family: 'Great Vibes', cursive;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans text-slate-800">
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-8 text-center relative">
+            <h1 class="text-3xl font-bold text-slate-800">Acid Dilution Simulator</h1>
+            <p class="text-slate-600 mt-2">Investigate the effects of dilution on strong vs. weak acids through active experimentation.</p>
+        </header>
+
+        <div class="flex justify-center gap-4 mb-6">
+            <button id="tab-phase1" class="px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-sm bg-blue-600 text-white">
+                Phase 1: Two-Acid Discovery
+            </button>
+            <button id="tab-phase2" class="px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-sm bg-slate-200 text-slate-400 cursor-not-allowed" disabled>
+                Phase 2: Three-Chemical Challenge 🔒
+            </button>
+        </div>
+
+        <div id="panel-phase1" class="grid grid-cols-1 md:grid-cols-12 gap-8">
+            <div class="md:col-span-7 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                        🧪 Laboratory Workbench
+                    </h2>
+                    <div class="flex gap-2">
+                        <button onclick="toggleHintModal(true)" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-all">
+                            💡 View Hint
+                        </button>
+                        <span class="text-xs bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded flex items-center">PHASE 1</span>
+                    </div>
+                </div>
+                
+                <div class="flex justify-around items-end h-60 mb-8 border-b border-slate-100 pb-6">
+                    <div class="flex flex-col items-center gap-3">
+                        <span class="text-xs font-bold text-slate-500 tracking-wider">UNKNOWN ACID X</span>
+                        <div class="beaker-container">
+                            <div id="liquid-x" class="liquid bg-red-500/30" style="height: 30%;"></div>
+                        </div>
+                        <div class="ph-meter text-lg" id="ph-x">pH: 2.00</div>
+                    </div>
+
+                    <div class="flex flex-col items-center gap-3">
+                        <span class="text-xs font-bold text-slate-500 tracking-wider">UNKNOWN ACID Y</span>
+                        <div class="beaker-container">
+                            <div id="liquid-y" class="liquid bg-amber-500/30" style="height: 30%;"></div>
+                        </div>
+                        <div class="ph-meter text-lg" id="ph-y">pH: 2.00</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold text-sm text-slate-600">Dilution Factor (Volume):</span>
+                        <span class="font-bold text-blue-600 text-lg" id="dilution-val">1x (Undiluted)</span>
+                    </div>
+                    <input type="range" id="dilution-slider" min="1" max="10" step="0.1" value="1" 
+                           class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    <div class="flex justify-between text-xs text-slate-400 mt-2 px-1">
+                        <span>1x (Initial)</span>
+                        <span>2x</span>
+                        <span>4x</span>
+                        <span>6x</span>
+                        <span>8x</span>
+                        <span>10x (Max Dilution)</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="reset-p1-btn" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-xl transition-all text-sm">
+                        Reset Beakers
+                    </button>
+                    <div class="w-2/3 flex items-center justify-end text-xs text-slate-400 italic">
+                        Attempts so far: <span id="p1-attempts-badge" class="font-bold ml-1 text-slate-600">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-5 flex flex-col gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex-1">
+                    <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-1.5">
+                        ❓ Identify the Acids
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-6 leading-relaxed">
+                        Drag the slider to add distilled water. Observe how the pH of each mystery acid changes. Then, classify them below.
+                    </p>
+
+                    <div class="space-y-4 mb-6">
+                        <label class="block p-4 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-all relative">
+                            <input type="radio" name="acid-classification" value="X-strong" class="absolute right-4 top-1/2 -translate-y-1/2 accent-blue-600">
+                            <div class="pr-8">
+                                <p class="font-semibold text-slate-700 text-sm">Acid X is Strong / Acid Y is Weak</p>
+                                <p class="text-xs text-slate-400 mt-1">X changes pH by exactly 1 unit; Y changes by less.</p>
+                            </div>
+                        </label>
+                        
+                        <label class="block p-4 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-all relative">
+                            <input type="radio" name="acid-classification" value="Y-strong" class="absolute right-4 top-1/2 -translate-y-1/2 accent-blue-600">
+                            <div class="pr-8">
+                                <p class="font-semibold text-slate-700 text-sm">Acid X is Weak / Acid Y is Strong</p>
+                                <p class="text-xs text-slate-400 mt-1">Y changes pH by exactly 1 unit; X changes by less.</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <button id="submit-p1-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-[0.98]">
+                        Submit Classification
+                    </button>
+
+                    <div id="feedback-p1" class="hidden mt-6 p-4 rounded-xl text-sm border"></div>
+                </div>
+
+                <div id="unlock-banner" class="hidden bg-emerald-50 border border-emerald-200 p-5 rounded-2xl text-center shadow-sm">
+                    <span class="text-2xl">🎉</span>
+                    <h4 class="font-bold text-emerald-800 text-base mt-2">Challenge Unlocked!</h4>
+                    <p class="text-emerald-700 text-xs mt-1 mb-4">You have mastered the two-acid system. Now test your skills on three unknown chemicals!</p>
+                    <button id="goto-phase2-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg text-sm shadow-md transition-all">
+                        Enter Phase 2 Challenge
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-phase2" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                        🔬 Advanced Dilution Bench
+                    </h2>
+                    <div class="flex gap-2">
+                        <button onclick="toggleHintModal(true)" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-all">
+                            💡 View Hint
+                        </button>
+                        <span class="text-xs bg-emerald-50 text-emerald-600 font-bold px-2 py-1 rounded flex items-center">PHASE 2</span>
+                    </div>
+                </div>
+
+                <div class="flex justify-around items-end h-60 mb-8 border-b border-slate-100 pb-6">
+                    <div class="flex flex-col items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500 tracking-wider">CHEMICAL A</span>
+                        <div class="beaker-container">
+                            <div id="liquid-ca" class="liquid bg-sky-500/20" style="height: 30%;"></div>
+                        </div>
+                        <div class="ph-meter text-base" id="ph-ca">pH: 3.00</div>
+                    </div>
+
+                    <div class="flex flex-col items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500 tracking-wider">CHEMICAL B</span>
+                        <div class="beaker-container">
+                            <div id="liquid-cb" class="liquid bg-purple-500/20" style="height: 30%;"></div>
+                        </div>
+                        <div class="ph-meter text-base" id="ph-cb">pH: 3.00</div>
+                    </div>
+
+                    <div class="flex flex-col items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500 tracking-wider">CHEMICAL C</span>
+                        <div class="beaker-container">
+                            <div id="liquid-cc" class="liquid bg-emerald-500/20" style="height: 30%;"></div>
+                        </div>
+                        <div class="ph-meter text-base" id="ph-cc">pH: 7.00</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold text-sm text-slate-600">Distilled Water Added (Dilution Factor):</span>
+                        <span class="font-bold text-emerald-600 text-lg" id="dilution-val-p2">1x (Undiluted)</span>
+                    </div>
+                    <input type="range" id="dilution-slider-p2" min="1" max="10" step="0.1" value="1" 
+                           class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
+                    <div class="flex justify-between text-xs text-slate-400 mt-2 px-1">
+                        <span>1x (Concentrated)</span>
+                        <span>2x</span>
+                        <span>4x</span>
+                        <span>6x</span>
+                        <span>8x</span>
+                        <span>10x (Fully Diluted)</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="reset-p2-btn" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-xl transition-all text-sm">
+                        Reset Experiment
+                    </button>
+                    <div class="w-2/3 flex items-center justify-end text-xs text-slate-400 italic">
+                        Attempts so far: <span id="p2-attempts-badge" class="font-bold ml-1 text-slate-600">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-1.5">
+                    📋 Classification Form
+                </h3>
+                <p class="text-xs text-slate-400 mb-6 leading-relaxed">
+                    Dilute the chemicals and observe. One is a <strong>Strong Acid</strong>, one is a <strong>Weak Acid</strong>, and one is <strong>Neutral / Buffer</strong>. Classify each below:
+                </p>
+
+                <form id="p2-quiz-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Chemical A:</label>
+                        <select id="select-ca" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="">-- Choose Classification --</option>
+                            <option value="strong">Strong Acid</option>
+                            <option value="weak">Weak Acid</option>
+                            <option value="neutral">Neutral / Buffer</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Chemical B:</label>
+                        <select id="select-cb" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="">-- Choose Classification --</option>
+                            <option value="strong">Strong Acid</option>
+                            <option value="weak">Weak Acid</option>
+                            <option value="neutral">Neutral / Buffer</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Chemical C:</label>
+                        <select id="select-cc" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="">-- Choose Classification --</option>
+                            <option value="strong">Strong Acid</option>
+                            <option value="weak">Weak Acid</option>
+                            <option value="neutral">Neutral / Buffer</option>
+                        </select>
+                    </div>
+
+                    <button type="button" id="submit-p2-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md mt-6">
+                        Verify Classifications
+                    </button>
+                </form>
+
+                <div id="feedback-p2" class="hidden mt-6 p-4 rounded-xl text-sm border leading-relaxed"></div>
+            </div>
+
+            <div id="panel-phase3" class="hidden lg:col-span-12 bg-white p-6 rounded-2xl shadow-sm border-2 border-dashed border-emerald-200 mt-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-slate-700 flex items-center gap-2">
+                        📝 Phase 3: Reflection & Conceptual Extension
+                    </h3>
+                    <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Final Step</span>
+                </div>
+                <p class="text-sm text-slate-500 mb-6 leading-relaxed">
+                    Apply your empirical observations to complete this deep-dive conceptual task before claiming your certification.
+                </p>
+
+                <div class="space-y-6">
+                    <div class="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                        <div class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-3">
+                            <label class="block font-semibold text-slate-700 text-sm leading-relaxed">
+                                1. Based on your experimental data, when Chemical A is diluted 10x, its pH rises to 4.00. What is its final hydrogen ion concentration ($[H^+]$) in $\text{mol/dm}^3$?
+                            </label>
+                            <button type="button" id="p3-hint-btn" class="shrink-0 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-all">
+                                💡 View Formula Hint
+                            </button>
+                        </div>
+                        
+                        <div id="p3-hint-box" class="hidden mb-4 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg text-xs text-amber-900 leading-relaxed space-y-1 animate-fadeIn">
+                            <p class="font-bold">Mathematical Reminder:</p>
+                            <p>The mathematical function for pH is defined as: $\text{pH} = -\log_{10}[H^+]$</p>
+                            <p>To isolate the concentration value, inverse the logarithm: $[H^+] = 10^{-\text{pH}}$</p>
+                        </div>
+
+                        <input type="text" id="p3-q1-input" placeholder="e.g. 1x10^-4 or 0.0001" class="w-full max-w-md bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+
+                    <div class="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                        <label class="block font-semibold text-slate-700 text-sm mb-2 leading-relaxed">
+                            2. Summary Challenge: In your own words, synthesize what you have discovered. How do you distinguish between a strong acid and a weak acid based on their respective pH shifts during a 10-fold volumetric dilution?
+                        </label>
+                        <textarea id="p3-q2-input" rows="3" placeholder="Provide a brief response summary..." class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col items-end gap-2">
+                    <button id="submit-p3-btn" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md active:scale-[0.98]">
+                        Complete Lab & Claim Certificate 🎓
+                    </button>
+                    <p id="feedback-p3" class="hidden text-xs text-red-500 font-bold"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="hint-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative">
+                <button onclick="toggleHintModal(false)" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-3xl">💡</span>
+                    <h3 class="text-xl font-bold text-slate-800">Chemistry Hints</h3>
+                </div>
+                <div class="space-y-4 text-sm text-slate-600 leading-relaxed">
+                    <p>When you add distilled water to dilute an acidic solution, consider these mathematical and chemical relationships:</p>
+                    
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-3 rounded-r-lg">
+                        <p class="font-semibold text-blue-950 mb-1">1. Strong Acids (Fully Dissociated)</p>
+                        <p>Because they ionize completely ($\approx 100\%$), a $10\text{x}$ dilution reduces the $[H^+]$ concentration exactly by 10 times. Since $\text{pH} = -\log_{10}[H^+]$, this results in a **precise pH increase of $1.0$**.</p>
+                    </div>
+
+                    <div class="bg-purple-50 border-l-4 border-purple-500 p-3 rounded-r-lg">
+                        <p class="font-semibold text-purple-950 mb-1">2. Weak Acids (Partially Dissociated)</p>
+                        <p>They establish an equilibrium: $HA \rightleftharpoons H^+ + A^-$. Diluting with water drives the reaction to shift right (Le Chatelier's Principle) to generate *additional* $H^+$ ions. This counteracts the dilution, meaning the pH will **increase by significantly less than $1.0$** (typically around $0.5$ for $10\text{x}$ dilution).</p>
+                    </div>
+
+                    <div class="bg-emerald-50 border-l-4 border-emerald-500 p-3 rounded-r-lg">
+                        <p class="font-semibold text-emerald-950 mb-1">3. Neutral or Buffered Systems</p>
+                        <p>Pure neutral water ($\text{pH} = 7$) or specialized chemical buffers maintain a stable chemical environment resistant to dilution changes.</p>
+                    </div>
+                </div>
+                <button onclick="toggleHintModal(false)" class="w-full mt-6 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-xl transition-all">
+                    Got it, let's experiment!
+                </button>
+            </div>
+        </div>
+
+        <div id="cert-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div id="cert-form-card" class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-100 text-center relative">
+                <span class="text-5xl">🎓</span>
+                <h3 class="text-2xl font-bold text-slate-800 mt-4">Mission Accomplished!</h3>
+                <p class="text-sm text-slate-500 mt-2 mb-6">
+                    You have successfully completed both lab phases. Enter your details below to claim your official certificate of accomplishment.
+                </p>
+                
+                <div class="space-y-4 text-left">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Your Full Name:</label>
+                        <input type="text" id="cert-student-name" placeholder="e.g. Isaac Newton" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Class:</label>
+                            <input type="text" id="cert-student-class" placeholder="e.g. 4S" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Class Number:</label>
+                            <input type="text" id="cert-student-num" placeholder="e.g. 18" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50">
+                        </div>
+                    </div>
+                </div>
+
+                <button id="claim-cert-btn" class="w-full mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-indigo-200">
+                    Submit & Generate Certificate
+                </button>
+                <p id="cert-status" class="text-xs mt-3 text-slate-400"></p>
+            </div>
+
+            <div id="cert-display-card" class="hidden bg-amber-50 rounded-3xl max-w-2xl w-full p-8 md:p-12 shadow-2xl border-8 border-double border-amber-600 text-center text-amber-950 relative">
+                <div class="absolute inset-2 border border-amber-300 pointer-events-none rounded-2xl"></div>
+                
+                <span class="text-5xl block mb-2 text-amber-700">📜</span>
+                <span class="text-xs uppercase tracking-widest font-mono text-amber-600 block mb-1">Official Scientific Decree</span>
+                <h2 class="cert-title text-3xl md:text-4xl font-bold tracking-tight text-amber-900 mb-6">CERTIFICATE OF PROTON DILUTION</h2>
+                
+                <p class="text-sm italic font-serif text-amber-800 mb-2">This humorous but highly prestigious award is conferred upon</p>
+                <div class="border-b-2 border-dashed border-amber-600/40 pb-2 mb-4 max-w-sm mx-auto">
+                    <span id="cert-show-name" class="cert-cursive text-4xl text-amber-900 font-bold">Scientist Extraordinaire</span>
+                </div>
+                
+                <p class="text-xs font-mono text-amber-700 mb-6">
+                    of Class <span id="cert-show-class" class="font-bold underline">N/A</span>, Number <span id="cert-show-num" class="font-bold underline">00</span>
+                </p>
+
+                <p class="text-sm text-amber-900 max-w-lg mx-auto leading-relaxed font-serif mb-8">
+                    who has demonstrated exemplary laboratory intuition in distinguishing <strong>Strong Acids</strong> from sneaky, half-ionized <strong>Weak Acids</strong> by pouring pure simulated water until they posed absolutely zero biological hazard. Having cracked the mystery formulas without breaking a single glassware item, they are hereby officially decorated with the title of:
+                </p>
+                
+                <div class="bg-amber-600/10 border border-amber-600/30 py-3 px-6 rounded-xl inline-block mb-8">
+                    <span class="font-mono text-base tracking-wide font-bold uppercase text-amber-800">🏆 GRAND MASTER OF THE DILUTED PROTON</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-8 pt-4 border-t border-amber-300/60 max-w-md mx-auto text-xs">
+                    <div class="text-center">
+                        <span class="cert-cursive text-xl text-amber-800 block">Dr. H. Two O</span>
+                        <div class="h-[1px] bg-amber-600/40 my-1 mx-auto w-24"></div>
+                        <span class="text-[10px] text-amber-600 block uppercase tracking-wider font-mono">Chief Hydrator</span>
+                    </div>
+                    <div class="text-center">
+                        <span class="cert-cursive text-xl text-amber-800 block">Prof. Al Chemist</span>
+                        <div class="h-[1px] bg-amber-600/40 my-1 mx-auto w-24"></div>
+                        <span class="text-[10px] text-amber-600 block uppercase tracking-wider font-mono">Glassware Breaker</span>
+                    </div>
+                </div>
+
+                <p class="text-[10px] text-amber-500 font-mono mt-8">
+                    Total Attempts: Phase 1: <span id="cert-p1-att">0</span> | Phase 2: <span id="cert-p2-att">0</span>. Data officially reported to the Cloud Server.
+                </p>
+
+                <button onclick="toggleCertModal(false)" class="mt-6 bg-amber-800 hover:bg-amber-900 text-white font-semibold py-2 px-6 rounded-xl text-xs transition-all">
+                    Return to Bench
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // --- TEACHER CONFIGURATION ---
+        // 已自動填寫您提供的 Google Apps Script Web App 網址
+        // =========================================================================
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzTw-mzPkyTEOZnU7RLsZOe-HQQAZj50wPgAIfl6qC_oQXINH_j5YXLJ3_NNXWHIutG/exec"; 
+
+        // --- State Management ---
+        let phase1Unlocked = true;
+        let phase2Unlocked = false;
+
+        // Attempt counters
+        let p1Attempts = 0;
+        let p2Attempts = 0;
+
+        // Check completion flags
+        let p1Completed = false;
+        let p2Completed = false;
+
+        // --- Phase 1 DOM Elements ---
+        const tabPhase1 = document.getElementById('tab-phase1');
+        const tabPhase2 = document.getElementById('tab-phase2');
+        const panelPhase1 = document.getElementById('panel-phase1');
+        const panelPhase2 = document.getElementById('panel-phase2');
+
+        const sliderP1 = document.getElementById('dilution-slider');
+        const dilutionValP1 = document.getElementById('dilution-val');
+        const phX = document.getElementById('ph-x');
+        const phY = document.getElementById('ph-y');
+        const liquidX = document.getElementById('liquid-x');
+        const liquidY = document.getElementById('liquid-y');
+        const resetP1Btn = document.getElementById('reset-p1-btn');
+        const submitP1Btn = document.getElementById('submit-p1-btn');
+        const feedbackP1 = document.getElementById('feedback-p1');
+        const unlockBanner = document.getElementById('unlock-banner');
+        const gotoPhase2Btn = document.getElementById('goto-phase2-btn');
+        const p1AttemptsBadge = document.getElementById('p1-attempts-badge');
+
+        // --- Phase 2 DOM Elements ---
+        const sliderP2 = document.getElementById('dilution-slider-p2');
+        const dilutionValP2 = document.getElementById('dilution-val-p2');
+        const phCA = document.getElementById('ph-ca');
+        const phCB = document.getElementById('ph-cb');
+        const phCC = document.getElementById('ph-cc');
+        const liquidCA = document.getElementById('liquid-ca');
+        const liquidCB = document.getElementById('liquid-cb');
+        const liquidCC = document.getElementById('liquid-cc');
+        const selectCA = document.getElementById('select-ca');
+        const selectCB = document.getElementById('select-cb');
+        const selectCC = document.getElementById('select-cc');
+        const submitP2Btn = document.getElementById('submit-p2-btn');
+        const feedbackP2 = document.getElementById('feedback-p2');
+        const resetP2Btn = document.getElementById('reset-p2-btn');
+        const p2AttemptsBadge = document.getElementById('p2-attempts-badge');
+
+        // --- Phase 3 DOM Elements ---
+        const panelPhase3 = document.getElementById('panel-phase3');
+        const p3HintBtn = document.getElementById('p3-hint-btn');
+        const p3HintBox = document.getElementById('p3-hint-box');
+        const p3Q1Input = document.getElementById('p3-q1-input');
+        const p3Q2Input = document.getElementById('p3-q2-input');
+        const submitP3Btn = document.getElementById('submit-p3-btn');
+        const feedbackP3 = document.getElementById('feedback-p3');
+
+        // --- Modal & Certificate Elements ---
+        const hintModal = document.getElementById('hint-modal');
+        const certModal = document.getElementById('cert-modal');
+        const certFormCard = document.getElementById('cert-form-card');
+        const certDisplayCard = document.getElementById('cert-display-card');
+        const certStudentNameInput = document.getElementById('cert-student-name');
+        const certStudentClassInput = document.getElementById('cert-student-class');
+        const certStudentNumInput = document.getElementById('cert-student-num');
+        const claimCertBtn = document.getElementById('claim-cert-btn');
+        const certStatus = document.getElementById('cert-status');
+
+        const certShowName = document.getElementById('cert-show-name');
+        const certShowClass = document.getElementById('cert-show-class');
+        const certShowNum = document.getElementById('cert-show-num');
+        const certP1Att = document.getElementById('cert-p1-att');
+        const certP2Att = document.getElementById('cert-p2-att');
+
+        // --- Toggle Modal Functions ---
+        function toggleHintModal(show) {
+            if (show) {
+                hintModal.classList.remove('hidden');
+            } else {
+                hintModal.classList.add('hidden');
+            }
+        }
+
+        function toggleCertModal(show) {
+            if (show) {
+                certModal.classList.remove('hidden');
+            } else {
+                certModal.classList.add('hidden');
+            }
+        }
+
+        // --- Lab Simulation Logic ---
+        function updatePhase1Simulation(V) {
+            dilutionValP1.innerText = V === 1 ? "1x (Undiluted)" : `${V}x`;
+            const pXVal = (2.00 + Math.log10(V)).toFixed(2);
+            const pYVal = (2.00 + 0.52 * Math.log10(V)).toFixed(2);
+            
+            phX.innerText = `pH: ${pXVal}`;
+            phY.innerText = `pH: ${pYVal}`;
+
+            const heightPercent = 30 + (V - 1) * (60 / 9);
+            liquidX.style.height = `${heightPercent}%`;
+            liquidY.style.height = `${heightPercent}%`;
+
+            const opacity = 0.3 - (V - 1) * (0.2 / 9);
+            liquidX.style.backgroundColor = `rgba(239, 68, 68, ${opacity})`;
+            liquidY.style.backgroundColor = `rgba(245, 158, 11, ${opacity})`;
+        }
+
+        // Phase 2 Simulation Update
+        function updatePhase2Simulation(V) {
+            dilutionValP2.innerText = V === 1 ? "1x (Concentrated)" : `${V}x`;
+            const pCAVal = (3.00 + Math.log10(V)).toFixed(2);
+            const pCBVal = (3.00 + 0.50 * Math.log10(V)).toFixed(2);
+            const pCCVal = (7.00).toFixed(2);
+
+            phCA.innerText = `pH: ${pCAVal}`;
+            phCB.innerText = `pH: ${pCBVal}`;
+            phCC.innerText = `pH: ${pCCVal}`;
+
+            const heightPercent = 30 + (V - 1) * (60 / 9);
+            liquidCA.style.height = `${heightPercent}%`;
+            liquidCB.style.height = `${heightPercent}%`;
+            liquidCC.style.height = `${heightPercent}%`;
+
+            const opacity = 0.25 - (V - 1) * (0.15 / 9);
+            liquidCA.style.backgroundColor = `rgba(14, 165, 233, ${opacity})`;
+            liquidCB.style.backgroundColor = `rgba(168, 85, 247, ${opacity})`;
+            liquidCC.style.backgroundColor = `rgba(16, 185, 129, ${opacity})`;
+        }
+
+        // --- Event Listeners ---
+        sliderP1.addEventListener('input', (e) => {
+            updatePhase1Simulation(parseFloat(e.target.value));
+        });
+
+        sliderP2.addEventListener('input', (e) => {
+            updatePhase2Simulation(parseFloat(e.target.value));
+        });
+
+        resetP1Btn.addEventListener('click', () => {
+            sliderP1.value = 1;
+            updatePhase1Simulation(1);
+            feedbackP1.classList.add('hidden');
+            const selected = document.querySelector('input[name="acid-classification"]:checked');
+            if (selected) selected.checked = false;
+        });
+
+        resetP2Btn.addEventListener('click', () => {
+            sliderP2.value = 1;
+            updatePhase2Simulation(1);
+            feedbackP2.classList.add('hidden');
+            panelPhase3.classList.add('hidden');
+            selectCA.value = "";
+            selectCB.value = "";
+            selectCC.value = "";
+            p3Q1Input.value = "";
+            p3Q2Input.value = "";
+            feedbackP3.classList.add('hidden');
+            p3HintBox.classList.add('hidden');
+        });
+
+        // Phase 1 - Submission Logic
+        submitP1Btn.addEventListener('click', () => {
+            const selected = document.querySelector('input[name="acid-classification"]:checked');
+            if (!selected) {
+                feedbackP1.className = "mt-6 p-4 rounded-xl text-sm border bg-red-50 border-red-200 text-red-800";
+                feedbackP1.innerText = "Please select an answer first.";
+                feedbackP1.classList.remove('hidden');
+                return;
+            }
+
+            p1Attempts++;
+            p1AttemptsBadge.innerText = p1Attempts;
+
+            if (selected.value === 'X-strong') {
+                p1Completed = true;
+                feedbackP1.className = "mt-6 p-4 rounded-xl text-sm border bg-emerald-50 border-emerald-200 text-emerald-800";
+                feedbackP1.innerHTML = `
+                    <p class="font-bold mb-1">Excellent! Correct diagnosis.</p>
+                    <p class="mb-2"><strong>Acid X is indeed the Strong Acid</strong> because a 10-fold dilution reduces $[H^+]$ exactly by 10x, raising pH by exactly $1.0$ unit:</p>
+                    <p class="font-mono text-xs bg-emerald-100/50 p-1.5 rounded mb-2">pH = -\\log_{10}[H^+] \\implies 2.00 \\rightarrow 3.00</p>
+                    <p><strong>Acid Y is the Weak Acid</strong>. As volume increases, Le Chatelier's Principle shifts its equilibrium to produce additional $H^+$, buffering the pH change so it increases by less ($2.00 \\rightarrow 2.52$).</p>
+                `;
+                feedbackP1.classList.remove('hidden');
+                
+                // Unlock Phase 2
+                phase2Unlocked = true;
+                tabPhase2.disabled = false;
+                tabPhase2.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                tabPhase2.classList.add('bg-slate-100', 'text-slate-700', 'hover:bg-slate-200');
+                tabPhase2.innerText = "Phase 2: Three-Chemical Challenge";
+                
+                unlockBanner.classList.remove('hidden');
+                
+                if (window.MathJax) {
+                    MathJax.typesetPromise([feedbackP1]);
+                }
+            } else {
+                feedbackP1.className = "mt-6 p-4 rounded-xl text-sm border bg-red-50 border-red-200 text-red-800";
+                feedbackP1.innerHTML = `
+                    <p class="font-bold mb-1">Incorrect. Let's analyze carefully.</p>
+                    <p>Notice how Acid X's pH increases from 2.00 to 3.00 (exactly 1 unit) when you dilute it 10x. Acid Y's pH only increases to 2.52. Drag the slider back and forth to re-observe!</p>
+                `;
+                feedbackP1.classList.remove('hidden');
+            }
+        });
+
+        // Phase 2 - Submission Logic
+        submitP2Btn.addEventListener('click', () => {
+            const valA = selectCA.value;
+            const valB = selectCB.value;
+            const valC = selectCC.value;
+
+            if (!valA || !valB || !valC) {
+                feedbackP2.className = "mt-6 p-4 rounded-xl text-sm border bg-red-50 border-red-200 text-red-800";
+                feedbackP2.innerText = "Please classify all three chemicals before verifying.";
+                feedbackP2.classList.remove('hidden');
+                return;
+            }
+
+            p2Attempts++;
+            p2AttemptsBadge.innerText = p2Attempts;
+
+            const isCorrect = (valA === 'strong' && valB === 'weak' && valC === 'neutral');
+
+            if (isCorrect) {
+                p2Completed = true;
+                feedbackP2.className = "mt-6 p-4 rounded-xl text-sm border bg-emerald-50 border-emerald-200 text-emerald-800 space-y-2";
+                feedbackP2.innerHTML = `
+                    <p class="font-bold text-base">Perfect Score! 🎉</p>
+                    <p>You have successfully identified all three solutions using kinetic and equilibrium indicators:</p>
+                    <ul class="list-disc pl-5 space-y-1 text-xs">
+                        <li><strong>Chemical A (Strong Acid):</strong> pH shifted from $3.00 \\rightarrow 4.00$ ($+1.00$ pH change upon 10x dilution).</li>
+                        <li><strong>Chemical B (Weak Acid):</strong> pH shifted from $3.00 \\rightarrow 3.50$ ($+0.50$ pH change), proving equilibrium regeneration of $H^+$ ions via Le Chatelier's shift.</li>
+                        <li><strong>Chemical C (Neutral/Buffer):</strong> pH remained constant at $7.00$, signifying no acidic proton shift.</li>
+                    </ul>
+                `;
+                feedbackP2.classList.remove('hidden');
+
+                if (window.MathJax) {
+                    MathJax.typesetPromise([feedbackP2]);
+                }
+
+                // Unlocked Phase 3 section smoothly
+                setTimeout(() => {
+                    panelPhase3.classList.remove('hidden');
+                    if (window.MathJax) {
+                        MathJax.typesetPromise([panelPhase3]);
+                    }
+                    panelPhase3.scrollIntoView({ behavior: 'smooth' });
+                }, 1000);
+
+            } else {
+                panelPhase3.classList.add('hidden');
+                feedbackP2.className = "mt-6 p-4 rounded-xl text-sm border bg-red-50 border-red-200 text-red-800 space-y-1";
+                let feedbackText = `<p class="font-bold">Not quite right yet. Analyze the curves:</p>`;
+                feedbackText += `<ul class="list-disc pl-5 text-xs">`;
+                if (valA !== 'strong') feedbackText += `<li>Check Chemical A again: Its pH increases by exactly 1 unit over 10x volume dilution.</li>`;
+                if (valB !== 'weak') feedbackText += `<li>Check Chemical B again: Its pH changes by less than 1 unit, showing signs of partial ionization equilibrium.</li>`;
+                if (valC !== 'neutral') feedbackText += `<li>Check Chemical C again: Its pH is unaffected by addition of water.</li>`;
+                feedbackText += `</ul>`;
+                feedbackP2.innerHTML = feedbackText;
+                feedbackP2.classList.remove('hidden');
+            }
+        });
+
+        // --- Phase 3 Event Listeners ---
+        p3HintBtn.addEventListener('click', () => {
+            p3HintBox.classList.toggle('hidden');
+        });
+
+        submitP3Btn.addEventListener('click', () => {
+            const q1Val = p3Q1Input.value.trim();
+            const q2Val = p3Q2Input.value.trim();
+
+            if (!q1Val || !q2Val) {
+                feedbackP3.innerText = "Please fill out both questions in Phase 3 before requesting your certificate.";
+                feedbackP3.classList.remove('hidden');
+                return;
+            }
+
+            feedbackP3.classList.add('hidden');
+            
+            // Proceed to Name Registration Modal
+            toggleCertModal(true);
+        });
+
+        // Tab Switching Logic
+        tabPhase1.addEventListener('click', () => {
+            tabPhase1.classList.add('bg-blue-600', 'text-white');
+            tabPhase1.classList.remove('bg-slate-100', 'text-slate-700');
+            
+            if (phase2Unlocked) {
+                tabPhase2.classList.add('bg-slate-100', 'text-slate-700');
+                tabPhase2.classList.remove('bg-emerald-600', 'text-white');
+            }
+            
+            panelPhase1.classList.remove('hidden');
+            panelPhase2.classList.add('hidden');
+        });
+
+        tabPhase2.addEventListener('click', () => {
+            if (!phase2Unlocked) return;
+            
+            tabPhase1.classList.remove('bg-blue-600', 'text-white');
+            tabPhase1.classList.add('bg-slate-100', 'text-slate-700');
+            
+            tabPhase2.classList.add('bg-emerald-600', 'text-white');
+            tabPhase2.classList.remove('bg-slate-100', 'text-slate-700');
+            
+            panelPhase1.classList.add('hidden');
+            panelPhase2.classList.remove('hidden');
+            updatePhase2Simulation(parseFloat(sliderP2.value));
+        });
+
+        gotoPhase2Btn.addEventListener('click', () => {
+            tabPhase2.click();
+        });
+
+        // --- Google Sheets Reporting & Certificate ---
+        claimCertBtn.addEventListener('click', async () => {
+            const name = certStudentNameInput.value.trim();
+            const sClass = certStudentClassInput.value.trim();
+            const sNum = certStudentNumInput.value.trim();
+
+            if (!name || !sClass || !sNum) {
+                certStatus.className = "text-xs mt-3 text-red-500 font-bold";
+                certStatus.innerText = "Please complete all fields (Name, Class, and Number).";
+                return;
+            }
+
+            certStatus.className = "text-xs mt-3 text-blue-600 animate-pulse";
+            certStatus.innerText = "Securing your scientific achievements on the cloud...";
+
+            const payload = {
+                studentName: name,
+                studentClass: sClass,
+                studentClassNum: sNum,
+                p1_attempts: p1Attempts,
+                p2_attempts: p2Attempts,
+                p1_status: "SUCCESS (Correct)",
+                p2_status: "SUCCESS (Correct)",
+                details: `P1 final: X=pH ${phX.innerText.replace("pH: ", "")}, Y=pH ${phY.innerText.replace("pH: ", "")}. P2 final: A=pH ${phCA.innerText.replace("pH: ", "")}, B=pH ${phCB.innerText.replace("pH: ", "")}, C=pH ${phCC.innerText.replace("pH: ", "")}. P3 Q1 Concentration: ${p3Q1Input.value.trim()}, P3 Q2 Summary: ${p3Q2Input.value.trim()}`
+            };
+
+            if (WEB_APP_URL && WEB_APP_URL.trim() !== "") {
+                try {
+                    // 使用 text/plain 來完全相容 Google Apps Script no-cors 要求，徹底避免 CORS blocking
+                    await fetch(WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 
+                            'Content-Type': 'text/plain;charset=utf-8' 
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (e) {
+                    console.error("Fail reporting to Google App Script:", e);
+                }
+            }
+
+            // Fill Certificate Values
+            certShowName.innerText = name;
+            certShowClass.innerText = sClass;
+            certShowNum.innerText = sNum;
+            certP1Att.innerText = p1Attempts;
+            certP2Att.innerText = p2Attempts;
+
+            // Transition Cards with Style
+            certFormCard.classList.add('hidden');
+            certDisplayCard.classList.remove('hidden');
+        });
+
+        window.onload = function() {
+            updatePhase1Simulation(1);
+        };
+    </script>
+</body>
+</html>
